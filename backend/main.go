@@ -7,13 +7,18 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/go-redis/redis/v8"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
 )
 
 var db *sql.DB
+var rdb *redis.Client
+var upgrader = websocket.Upgrader{}
 
 // Content represents the structure of the content that will be stored in the database
 type Content struct {
@@ -23,10 +28,26 @@ type Content struct {
 
 var ctx = context.Background()
 
+func init() {
+	err := godotenv.Load(".env.local")
+	if err != nil {
+		log.Fatal("Error loading .env.local file")
+	}
+}
+
 func main() {
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
+
+	// Replace with your database name
+	dbName := "contents"
+
+	// Construct the connection string
+	dbConnection := fmt.Sprintf("%s:%s@tcp(127.0.0.1:3306)/%s", dbUser, dbPassword, dbName)
+
 	// Connect to MySQL database
 	var err error
-	db, err = sql.Open("mysql", "root:password@tcp(127.0.0.1:3306)/contentdb")
+	db, err = sql.Open("mysql", dbConnection)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,9 +68,11 @@ func main() {
 	fmt.Println("Server started at :8080")
 	log.Fatal(http.ListenAndServe(":8080", r))
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379", // Use your Redis server address
+	rdb = redis.NewClient(&redis.Options{
+		Addr: "localhost:6379", // Redis server address
 	})
+
+	http.HandleFunc("/ws", handleWebSocket)
 
 	// Test Redis connection
 	_, err = rdb.Ping(ctx).Result()
@@ -57,9 +80,29 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("Connected to Redis")
+}
 
-	// Example: Publish a notification
-	publishNotification(rdb, "New content posted!")
+func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	// upgrades the HTTP server connection to a WebSocket connection
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("Failed to set websocket upgrade: ", err)
+		return
+	}
+	defer conn.Close()
+
+	pubsub := rdb.Subscribe(ctx, "notifications")
+	defer pubsub.Close()
+
+	// creates a Go channel that will receive messages from the Redis subscription
+	ch := pubsub.Channel()
+	for msg := range ch {
+		// sends the message received from Redis over the WebSocket connection to the client
+		if err := conn.WriteMessage(websocket.TextMessage, []byte(msg.Payload)); err != nil {
+			log.Println("Failed to send message over WebSocket: ", err)
+			return
+		}
+	}
 }
 
 func publishNotification(rdb *redis.Client, message string) {
@@ -108,4 +151,7 @@ func submitHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
+
+	// Publish a notification
+	publishNotification(rdb, "New content posted!")
 }
