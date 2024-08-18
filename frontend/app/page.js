@@ -1,7 +1,6 @@
 'use client'
 import * as React from 'react';
-import { Box, TextField, Stack, Button } from "@mui/material";
-import SendRoundedIcon from '@mui/icons-material/SendRounded';
+import { Box } from "@mui/material";
 import AppAppBar from './components/AppAppBar';
 import MainContent from './components/MainContent';
 
@@ -53,8 +52,6 @@ export default function Home() {
       socket.close()
     };
   }, []);
-
-  
 
   return (
     <Box

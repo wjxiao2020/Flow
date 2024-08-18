@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { Box, Typography, IconButton, Stack, Avatar } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import { useUser } from '@clerk/nextjs'
+import { createClerkClient } from '@clerk/backend'
 
-const { users } = require('@clerk/clerk-sdk-node');
+const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
 
 async function getUserProfilePhoto(auth_id) {
   try {
-    const user = await users.getUser(auth_id);
-    return user.profileImageUrl; // This is the URL to the user's profile photo
+    const user = await clerkClient.users.getUser(auth_id);
+    return user.imageUrl; // This is the URL to the user's profile photo
   } catch (error) {
     console.error("Error fetching user's profile photo:", error);
     return null;
@@ -22,6 +23,9 @@ const MainContent = ({ mode, handleOpenLogIn }) => {
   
   const { user, isSignedIn } = useUser();
   const [authId, setAuthId] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [username, setUsername] = useState(null);
+
 
   const toggleLike = async(contentId) => {
     if (!user) {
@@ -35,7 +39,7 @@ const MainContent = ({ mode, handleOpenLogIn }) => {
 
     try {
       // Send a request to the backend to toggle like
-      await fetch(`http://localhost:8080/api/posts/${contentId}/${authId}/like`, {
+      await fetch(`http://localhost:8080/api/posts/${contentId}/${authId}/${username}/like`, {
         method: isLiked ? 'DELETE' : 'POST',
       });
 
@@ -46,9 +50,40 @@ const MainContent = ({ mode, handleOpenLogIn }) => {
       console.error('Error updating like:', error);
     }
   };
+
+  const generateRandomUsername = () => {
+    const letters = 'abcdefghijklmnopqrstuvwxyz';
+    let username = '';
+  
+    for (let i = 0; i < 5; i++) {
+      const randomIndex = Math.floor(Math.random() * letters.length);
+      username += letters[randomIndex];
+    }
+  
+    return username;
+  }
   
 
   useEffect(() => {
+    const fetchUserInfo = async () => {
+      const response = await fetch('http://localhost:8080/api/getUserInfo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user?.id, username: user.username ? user.username : generateRandomUsername() }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserId(data.userId);
+        setUsername(data.username);
+      } else {
+        console.log(response)
+        console.error('Failed to fetch posts');
+      }
+    };
+
     const fetchPosts = async () => {
       setLoading(true);
       setAuthId(user ? user.id : null)
@@ -70,6 +105,9 @@ const MainContent = ({ mode, handleOpenLogIn }) => {
       setLoading(false);
     };
 
+    if (user) {
+      fetchUserInfo();
+    }
     fetchPosts();
   }, [isSignedIn, user]);
 

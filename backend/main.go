@@ -44,6 +44,11 @@ type ContentSubmitted struct {
 	AuthID  string   `json:"auth_id"`
 }
 
+type User struct {
+	UserID   int    `json:"user_id"`
+	Username string `json:"username"`
+}
+
 var ctx = context.Background()
 
 func init() {
@@ -83,9 +88,7 @@ func main() {
 	r.HandleFunc("/api/retrieve", getContentsHandler).Methods("POST")
 	r.HandleFunc("/api/contents", submitHandler).Methods("POST")
 	r.HandleFunc("/ws", handleWebSocket)
-	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Hello, world!"))
-	})
+	r.HandleFunc("/api/getUserInfo", getUserInfoHandler).Methods("POST")
 
 	// Enable CORS for all origins
 	corsHandler := handlers.CORS(
@@ -95,7 +98,7 @@ func main() {
 	)(r)
 
 	// http.HandleFunc("/ws", handleWebSocket)
-	http.HandleFunc("/api/posts/{contentId}/like", toggleLikeHandler)
+	http.HandleFunc("/api/posts/{contentId}/{authId}/{username}/like", toggleLikeHandler)
 
 	// Start the server
 	fmt.Println("Server started at :8080")
@@ -116,10 +119,18 @@ func main() {
 func toggleLikeHandler(w http.ResponseWriter, r *http.Request) {
 	contentId := chi.URLParam(r, "contentId")
 	authId := chi.URLParam(r, "authId")
+	username := chi.URLParam(r, "username")
 	if userId == 0 {
 		err := db.QueryRow("SELECT user_id FROM Users WHERE auth_id = ?", authId).Scan(&userId)
-		if err != nil {
-			fmt.Printf("error retrieving user_id: %v", err)
+		if err == sql.ErrNoRows {
+			// User does not exist, insert new user
+			_, err := db.Exec("INSERT INTO Users (auth_id) VALUES (?, ?)", authId, username)
+			if err != nil {
+				fmt.Printf("failed to insert user: %w", err)
+			}
+			fmt.Println("User inserted successfully")
+		} else if err != nil {
+			fmt.Printf("failed to check user existence: %w", err)
 		}
 	}
 
@@ -206,6 +217,61 @@ func publishNotification(rdb *redis.Client, message string) {
 	fmt.Println("Notification published")
 }
 
+func getUserInfoHandler(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		UserID   *string `json:"userId"`
+		Username *string `json:"username"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid input", http.StatusBadRequest)
+		return
+	}
+	if request.UserID != nil {
+		fmt.Println(*request.UserID)
+		var user User
+		query := `
+		SELECT user_id, username
+				FROM Users 
+				WHERE auth_id = ?`
+		err := db.QueryRow(query, *request.UserID).Scan(&user.UserID, &user.Username)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				// User does not exist, insert new user
+				insertQuery := `
+				INSERT INTO Users (auth_id, username) 
+				VALUES (?, ?)`
+
+				_, insertErr := db.Exec(insertQuery, *request.UserID, *request.Username)
+				if insertErr != nil {
+					fmt.Println("Unable to insert new user")
+					fmt.Println(insertErr)
+					http.Error(w, "Unable to insert new user", http.StatusInternalServerError)
+					return
+				}
+
+				// Now fetch the newly inserted user
+				err = db.QueryRow(query, *request.UserID).Scan(&user.UserID, &user.Username)
+				if err != nil {
+					fmt.Println("Unable to fetch newly inserted user info")
+					fmt.Println(err)
+					http.Error(w, "Unable to fetch newly inserted user info", http.StatusInternalServerError)
+					return
+				}
+
+			} else {
+				fmt.Println("Unable to fetch user info")
+				fmt.Println(err)
+				http.Error(w, "Unable to fetch user info", http.StatusInternalServerError)
+				return
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(user)
+	}
+}
+
 // getContentsHandler handles fetching all contents from the database
 func getContentsHandler(w http.ResponseWriter, r *http.Request) {
 	var request struct {
@@ -235,15 +301,15 @@ func getContentsHandler(w http.ResponseWriter, r *http.Request) {
 			COUNT(DISTINCT l.user_id) AS likes
 		FROM 
 			Contents c
-			JOIN Contents2Tags ct ON c.content_id = ct.content_id
-			JOIN Tags t ON ct.tag_id = t.tag_id
+			LEFT JOIN Contents2Tags ct ON c.content_id = ct.content_id
+			LEFT JOIN Tags t ON ct.tag_id = t.tag_id
 			LEFT JOIN UserTagInteraction uti ON t.tag_id = uti.tag_id AND uti.user_id = (
 				SELECT user_id 
 				FROM Users 
 				WHERE auth_id = ?
 			)
 			LEFT JOIN Likes l ON c.content_id = l.content_id
-			JOIN Users u ON c.user_id = u.user_id
+			LEFT JOIN Users u ON c.user_id = u.user_id
 		GROUP BY 
 			c.content_id
 		ORDER BY 
@@ -269,8 +335,8 @@ func getContentsHandler(w http.ResponseWriter, r *http.Request) {
 			COUNT(DISTINCT l.user_id) AS likes
 		FROM 
 			Contents c
-			JOIN Contents2Tags ct ON c.content_id = ct.content_id
-			JOIN Tags t ON ct.tag_id = t.tag_id
+			LEFT JOIN Contents2Tags ct ON c.content_id = ct.content_id
+			LEFT JOIN Tags t ON ct.tag_id = t.tag_id
 			LEFT JOIN Likes l ON c.content_id = l.content_id
 			JOIN Users u ON c.user_id = u.user_id
 		GROUP BY 
@@ -345,12 +411,13 @@ func submitHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	// Publish a notification
-	publishNotification(rdb, "New content posted!")
+	// publishNotification(rdb, "New content posted!")
 }
 
 func insertContent(db *sql.DB, contentSubmitted ContentSubmitted) error {
 	// 1. Find the user_id from the Users table where auth_id equals the UserID
 	var userID int
+	fmt.Println("contentSubmitted.AuthID = " + contentSubmitted.AuthID)
 	err := db.QueryRow("SELECT user_id FROM Users WHERE auth_id = ?", contentSubmitted.AuthID).Scan(&userID)
 	if err != nil {
 		return fmt.Errorf("failed to find user_id: %w", err)
