@@ -1,1 +1,1 @@
-This is for Headstarter TikTok Hackathon.
+This is for the Headstarter TikTok Hackathon.

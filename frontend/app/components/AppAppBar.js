@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState } from 'react';
 import { styled, alpha, createTheme, ThemeProvider } from '@mui/material/styles';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
@@ -9,8 +9,9 @@ import InputBase from '@mui/material/InputBase';
 import Button from '@mui/material/Button';
 import SearchIcon from '@mui/icons-material/Search';
 import Switch from '@mui/material/Switch';
-import { CssBaseline, useMediaQuery, Modal, TextField } from '@mui/material';
+import { CssBaseline, useMediaQuery, Modal, TextField, Popover, Chip } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import { SignedIn, SignedOut, UserButton, SignIn, useUser } from '@clerk/nextjs'
 
 const Search = styled('div')(({ theme }) => ({
   position: 'relative',
@@ -61,8 +62,16 @@ const modalStyle = {
   p: 4,
 };
 
+
 export default function AppAppBar({ mode, toggleColorMode }) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [tags, setTags] = useState([]);
+  const [content, setContent] = useState('');
+  const [title, setTitle] = useState('');
+  const [selectedText, setSelectedText] = useState('');
+  const [openLogIn, setOpenLogIn] = useState(false);
+  const {isLoaded, isSignedIn, user} = useUser()
 
   const theme = createTheme({
     palette: {
@@ -73,8 +82,63 @@ export default function AppAppBar({ mode, toggleColorMode }) {
     },
   });
 
-  const handleOpen = () => setOpen(true);
+  const handleTextSelect = (event) => {
+    const selectedStr = window.getSelection().toString().trim();
+    if (selectedStr.length > 0) {
+      setAnchorEl(event.target); // Set the position of the popup
+      setSelectedText(selectedStr)
+    }
+  };
+
+  const addTag = (newTag) => {
+    if (!tags.includes(newTag)) {
+      setTags([...tags, newTag]);
+    }
+    setAnchorEl(null); // Close the popup after adding the tag
+  };
+  
+  const handleDeleteTag = (tagToDelete) => () => {
+    setTags((tags) => tags.filter((tag) => tag !== tagToDelete));
+  };
+
+  const handleOpen = () => {
+    if (user) {
+      setOpen(true);
+    }
+    else {
+      handleOpenLogIn();
+    }
+  }
   const handleClose = () => setOpen(false);
+  const handlePost = () => {
+    if (!user) {
+      
+    }
+    submitContent(user.id)
+    handleClose()
+  }
+
+  const handleOpenLogIn = () => setOpenLogIn(true);
+  const handleCloseLogIn = () => setOpenLogIn(false);
+
+
+  // submit post content
+  const submitContent = async (userId) => {
+    const response = await fetch('http://localhost:8080/api/contents', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title, content, tags, userId }),
+    });
+  
+    if (response.status === 201) {
+      console.log('Content submitted successfully');
+    } else {
+      console.error('Failed to submit content');
+    }
+  };
+
 
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -105,9 +169,25 @@ export default function AppAppBar({ mode, toggleColorMode }) {
             )}
             
             <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-              <Button variant="contained" sx={{ backgroundColor: '#ff2d55', color: '#fff', textTransform: 'none', borderRadius: '4px', padding: '6px 16px', marginRight: '8px' }}>
-                Log in
-              </Button>
+              <SignedOut>
+                <Button variant="contained" onClick={handleOpenLogIn} sx={{ backgroundColor: '#ff2d55', color: '#fff', textTransform: 'none', borderRadius: '4px', padding: '6px 16px', marginRight: '8px' }}>
+                  Log in
+                </Button>
+              </SignedOut>
+              <Modal open={openLogIn} onClose={handleCloseLogIn}>
+                <Box sx={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)'
+                }}>
+                  <SignIn routing="hash"/>
+                </Box>
+              </Modal>
+              <SignedIn>
+                <UserButton />
+              </SignedIn>
+              
               <IconButton size="large" edge="end" color="inherit">
                 <Switch checked={mode === 'dark'} onChange={toggleColorMode} />
               </IconButton>
@@ -134,6 +214,8 @@ export default function AppAppBar({ mode, toggleColorMode }) {
             label="Title"
             variant="outlined"
             sx={{ mb: 2 }}
+            value={title}
+            onChange={(e) => {setTitle(e.target.value)}}
           />
           <TextField
             fullWidth
@@ -141,9 +223,41 @@ export default function AppAppBar({ mode, toggleColorMode }) {
             variant="outlined"
             multiline
             rows={4}
+            value={content}
+            onChange={(e) => {setContent(e.target.value)}}
+            onSelect={handleTextSelect}
           />
-          <Box sx={{ mt: 3, textAlign: 'right' }}>
-            <Button variant="contained" color="primary" onClick={handleClose}>
+          <Popover
+            open={Boolean(anchorEl)}
+            anchorEl={anchorEl}
+            onClose={() => setAnchorEl(null)}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'left',
+            }}
+            disableAutoFocus // Prevent the popover from stealing focus
+            disableEnforceFocus
+            disableRestoreFocus
+          >
+            <Button onClick={() => addTag(selectedText)}>Add Tag</Button>
+          </Popover>
+          {
+            tags.length > 0 && 
+            <Box sx={{mt: 2}}>
+              {
+                tags.map((tag, index) => (
+                <Chip
+                  key={index}
+                  variant='outlined'
+                  label={tag}
+                  onDelete={handleDeleteTag(tag)}
+                />
+                ))
+              }
+            </Box>
+          }
+            <Box sx={{ mt: 3, textAlign: 'right' }}>
+            <Button variant="contained" color="primary" onClick={handlePost}>
               Post
             </Button>
           </Box>

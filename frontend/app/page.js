@@ -19,23 +19,6 @@ export default function Home() {
     const data = await response.json();
     return data;
   };
-  
-  // Next.js API call to submit content
-  const submitContent = async (content) => {
-    const response = await fetch('http://localhost:8080/api/contents', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ content }),
-    });
-  
-    if (response.status === 201) {
-      console.log('Content submitted successfully');
-    } else {
-      console.error('Failed to submit content');
-    }
-  };
 
   useEffect(() => {
     const socket = new WebSocket('ws://localhost:8080/ws');
