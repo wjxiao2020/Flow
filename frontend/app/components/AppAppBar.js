@@ -62,14 +62,13 @@ const modalStyle = {
   p: 4,
 };
 
-export default function AppAppBar({ mode, toggleColorMode }) {
+export default function AppAppBar({ mode, toggleColorMode, openLogIn, handleOpenLogIn, handleCloseLogIn }) {
   const [open, setOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [tags, setTags] = useState([]);
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
   const [selectedText, setSelectedText] = useState('');
-  const [openLogIn, setOpenLogIn] = useState(false);
   const {isLoaded, isSignedIn, user} = useUser()
   const titleMaxLength = 255;         // MAX: 255
   const contentMaxLength = 65535;     // MAX: 65535
@@ -114,13 +113,11 @@ export default function AppAppBar({ mode, toggleColorMode }) {
   const handlePost = () => {
     if (!user) {
       // Handle the case where the user is not signed in
+      handleOpenLogIn();
     }
     submitContent(user.id);
     handleClose();
   };
-
-  const handleOpenLogIn = () => setOpenLogIn(true);
-  const handleCloseLogIn = () => setOpenLogIn(false);
 
   const submitContent = async (userId) => {
     const response = await fetch('http://localhost:8080/api/contents', {

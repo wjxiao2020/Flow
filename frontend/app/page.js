@@ -10,7 +10,10 @@ import { useState, useEffect } from "react";
 export default function Home() {
   const [message, setMessage] = useState('');
   const [mode, setMode] = React.useState('light');
+  const [openLogIn, setOpenLogIn] = useState(false);
 
+  const handleOpenLogIn = () => setOpenLogIn(true);
+  const handleCloseLogIn = () => setOpenLogIn(false);
 
   const toggleColorMode = () => {
     setMode((prev) => (prev === 'dark' ? 'light' : 'dark'));
@@ -63,8 +66,8 @@ export default function Home() {
       alignItems='center'
       margin='0'
       padding='0'>
-        <AppAppBar mode={mode} toggleColorMode={toggleColorMode} />
-        <MainContent mode={mode} />
+        <AppAppBar mode={mode} toggleColorMode={toggleColorMode} openLogIn={openLogIn} handleOpenLogIn={handleOpenLogIn} handleCloseLogIn={handleCloseLogIn} />
+        <MainContent mode={mode} handleOpenLogIn={handleOpenLogIn} />
     </Box>
   );
 }

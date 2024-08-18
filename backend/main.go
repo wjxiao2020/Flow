@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/go-redis/redis/v8"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/handlers"
@@ -20,7 +21,7 @@ import (
 
 var db *sql.DB
 var rdb *redis.Client
-var upgrader = websocket.Upgrader{}
+var userId int
 
 // represents the structure of the content the will be sent to frontend to render
 type ContentShown struct {
@@ -94,6 +95,7 @@ func main() {
 	)(r)
 
 	// http.HandleFunc("/ws", handleWebSocket)
+	http.HandleFunc("/api/posts/{contentId}/like", toggleLikeHandler)
 
 	// Start the server
 	fmt.Println("Server started at :8080")
@@ -109,6 +111,39 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("Connected to Redis")
+}
+
+func toggleLikeHandler(w http.ResponseWriter, r *http.Request) {
+	contentId := chi.URLParam(r, "contentId")
+	authId := chi.URLParam(r, "authId")
+	if userId == 0 {
+		err := db.QueryRow("SELECT user_id FROM Users WHERE auth_id = ?", authId).Scan(&userId)
+		if err != nil {
+			fmt.Printf("error retrieving user_id: %v", err)
+		}
+	}
+
+	if r.Method == "POST" {
+		// Add a like
+		_, err := db.Exec(`INSERT INTO Likes (content_id, user_id) VALUES (?, ?)`, contentId, userId)
+		if err != nil {
+			http.Error(w, "Unable to add like", http.StatusInternalServerError)
+			return
+		}
+	} else if r.Method == "DELETE" {
+		// Remove a like
+		_, err := db.Exec(`DELETE FROM Likes WHERE content_id = ? AND user_id = ?`, contentId, userId)
+		if err != nil {
+			http.Error(w, "Unable to remove like", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Respond with status OK
+	w.WriteHeader(http.StatusOK)
 }
 
 // func handleWebSocket(w http.ResponseWriter, r *http.Request) {
