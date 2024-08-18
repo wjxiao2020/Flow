@@ -20,15 +20,24 @@ var db *sql.DB
 var rdb *redis.Client
 var upgrader = websocket.Upgrader{}
 
-// Content represents the structure of the content that will be stored in the database
-type Content struct {
+// represents the structure of the content the will be sent to frontend to render
+type ContentShown struct {
 	ContentID int      `json:"content_id"`
 	UserID    int      `json:"user_id"`
 	Username  string   `json:"username"`
+	Title     string   `json:"title"`
 	Content   string   `json:"content"`
 	CreatedAt string   `json:"created_at"`
 	Tags      []string `json:"tags"`
 	Likes     int      `json:"likes"`
+}
+
+// represents the structure of the content that the frond end sent when an user post something
+type ContentSubmitted struct {
+	Title   string   `json:"title"`
+	Content string   `json:"content"`
+	Tags    []string `json:"tags"`
+	UserID  string   `json:"userId"`
 }
 
 var ctx = context.Background()
@@ -125,9 +134,9 @@ func getContentsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var contents []Content
+	var contents []ContentShown
 	for rows.Next() {
-		var content Content
+		var content ContentShown
 		if err := rows.Scan(&content.ContentID, &content.Content); err != nil {
 			http.Error(w, "Error scanning content", http.StatusInternalServerError)
 			return
@@ -141,7 +150,7 @@ func getContentsHandler(w http.ResponseWriter, r *http.Request) {
 
 // submitHandler handles inserting new content into the database
 func submitHandler(w http.ResponseWriter, r *http.Request) {
-	var content Content
+	var content ContentSubmitted
 	if err := json.NewDecoder(r.Body).Decode(&content); err != nil {
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
@@ -159,12 +168,13 @@ func submitHandler(w http.ResponseWriter, r *http.Request) {
 	publishNotification(rdb, "New content posted!")
 }
 
-func recommendContents(db *sql.DB, userID string) ([]Content, error) {
+func recommendContents(db *sql.DB, userID string) ([]ContentShown, error) {
 	query := `
 	SELECT 
 		c.content_id,
 		c.user_id,
 		u.username,
+		c.title,
 		c.content,
 		c.created_at,
 		GROUP_CONCAT(DISTINCT t.tag_name ORDER BY t.tag_name ASC) AS tags,
@@ -192,9 +202,9 @@ func recommendContents(db *sql.DB, userID string) ([]Content, error) {
 	}
 	defer rows.Close()
 
-	var posts []Content
+	var posts []ContentShown
 	for rows.Next() {
-		var post Content
+		var post ContentShown
 		if err := rows.Scan(&post.ContentID, &post.Content); err != nil {
 			return nil, err
 		}
@@ -204,12 +214,13 @@ func recommendContents(db *sql.DB, userID string) ([]Content, error) {
 	return posts, nil
 }
 
-func getContentsByUser(db *sql.DB, targetUserID string) ([]Content, error) {
+func getContentsByUser(db *sql.DB, targetUserID string) ([]ContentShown, error) {
 	query := `
     SELECT 
 		c.content_id,
 		c.user_id,
 		u.username,
+		c.title,
 		c.content,
 		c.created_at,
 		GROUP_CONCAT(DISTINCT t.tag_name ORDER BY t.tag_name ASC) AS tags,  
@@ -229,9 +240,9 @@ func getContentsByUser(db *sql.DB, targetUserID string) ([]Content, error) {
 	}
 	defer rows.Close()
 
-	var posts []Content
+	var posts []ContentShown
 	for rows.Next() {
-		var post Content
+		var post ContentShown
 		if err := rows.Scan(&post.ContentID, &post.Content, &post.CreatedAt); err != nil {
 			return nil, err
 		}

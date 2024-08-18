@@ -14,6 +14,7 @@ CREATE TABLE Contents (
     content_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
     CONSTRAINT content_fk_user_id FOREIGN KEY (user_id) REFERENCES Users(user_id),
+    title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -50,6 +51,7 @@ CREATE TABLE UserTagInteraction (
 
 insert into Users(username, auth_id) values ('weijia', 1);
 insert into Users(username, auth_id) values ('reb', 2);
+insert into Users(username, auth_id) values ('bored', 3);
 DELETE FROM Users where user_id=3;
 select * from Users;
 select * from Contents;
@@ -90,13 +92,124 @@ insert into UserTagInteraction values(2, 6, 1);
 select * from UserTagInteraction;
 
 
-SELECT c.content_id, c.content, SUM(uti.score) AS relevance
+SELECT c.content_id
     FROM Contents c
 	JOIN Contents2Tags ct ON c.content_id = ct.content_id
     JOIN Tags t ON ct.tag_id = t.tag_id
     JOIN UserTagInteraction uti ON t.tag_id = uti.tag_id
     WHERE uti.user_id = 2
     GROUP BY c.content_id 
-    ORDER BY relevance DESC, c.created_at DESC
-    LIMIT 50;
+    ORDER BY SUM(uti.score) DESC, c.created_at DESC
+    LIMIT 50; 
 
+SELECT rec.content_id, rec.user_id, u.username, rec.content, rec.created_at, t.tag_name FROM
+(
+SELECT c.content_id, c.user_id, c.content, c.created_at
+    FROM Contents c
+	JOIN Contents2Tags ct ON c.content_id = ct.content_id
+    JOIN Tags t ON ct.tag_id = t.tag_id
+    JOIN UserTagInteraction uti ON t.tag_id = uti.tag_id
+    WHERE uti.user_id = 2
+    GROUP BY c.content_id 
+    ORDER BY SUM(uti.score) DESC, c.created_at DESC
+    LIMIT 50) AS rec
+JOIN Users u ON rec.user_id=u.user_id
+JOIN Contents2Tags ct ON rec.content_id = ct.content_id
+JOIN Tags t ON ct.tag_id = t.tag_id
+JOIN Likes l ON rec.user_id=l.user_id;
+
+SELECT 
+    c.content_id,
+    c.user_id,
+    u.username,  -- Assuming you have a Users table with the username
+    c.content,
+    c.created_at,
+    GROUP_CONCAT(DISTINCT t.tag_name ORDER BY t.tag_name ASC) AS tags,  -- Concatenate tag names
+    COUNT(DISTINCT l.user_id) AS likes  -- Count distinct users who liked the post
+FROM 
+    Contents c
+    JOIN Contents2Tags ct ON c.content_id = ct.content_id
+    JOIN Tags t ON ct.tag_id = t.tag_id
+    JOIN UserTagInteraction uti ON t.tag_id = uti.tag_id
+    LEFT JOIN Likes l ON c.content_id = l.content_id  -- Join with Likes table
+    JOIN Users u ON c.user_id = u.user_id  -- Join with Users table for username
+WHERE 
+    uti.user_id = 3
+GROUP BY 
+    c.content_id
+ORDER BY 
+    SUM(uti.score) DESC, 
+    c.created_at DESC
+LIMIT 50;
+
+
+SELECT 
+    c.content_id,
+    c.user_id,
+    u.username,  -- Assuming you have a Users table with the username
+    c.content,
+    c.created_at,
+    GROUP_CONCAT(DISTINCT t.tag_name ORDER BY t.tag_name ASC) AS tags,  -- Concatenate tag names
+    COUNT(DISTINCT l.user_id) AS likes  -- Count distinct users who liked the post
+FROM 
+    Contents c
+    JOIN Contents2Tags ct ON c.content_id = ct.content_id
+    JOIN Tags t ON ct.tag_id = t.tag_id
+    LEFT JOIN UserTagInteraction uti ON t.tag_id = uti.tag_id AND uti.user_id = 2  -- Adjusted join for user-specific interaction
+    LEFT JOIN Likes l ON c.content_id = l.content_id  -- Join with Likes table
+    JOIN Users u ON c.user_id = u.user_id  -- Join with Users table for username
+WHERE 
+    uti.user_id = 3
+GROUP BY 
+    c.content_id
+ORDER BY 
+    CASE 
+        WHEN SUM(uti.score) IS NULL or SUM(uti.score)=0 THEN COUNT(DISTINCT l.user_id)  -- Rank by likes if no interaction
+        ELSE SUM(uti.score)  -- Rank by score if interaction exists
+    END DESC, 
+    c.created_at DESC
+LIMIT 50;
+
+SELECT 
+    c.content_id,
+    c.user_id,
+    u.username,
+    c.content,
+    c.created_at,
+    GROUP_CONCAT(DISTINCT t.tag_name ORDER BY t.tag_name ASC) AS tags,
+    COUNT(DISTINCT l.user_id) AS likes-- ,
+--     COALESCE(SUM(uti.score), 0) AS interaction_score  -- Include interaction score
+FROM 
+    Contents c
+    JOIN Contents2Tags ct ON c.content_id = ct.content_id
+    JOIN Tags t ON ct.tag_id = t.tag_id
+    LEFT JOIN UserTagInteraction uti ON t.tag_id = uti.tag_id AND uti.user_id = 3
+    LEFT JOIN Likes l ON c.content_id = l.content_id
+    JOIN Users u ON c.user_id = u.user_id
+GROUP BY 
+    c.content_id
+ORDER BY 
+    CASE 
+        WHEN COUNT(DISTINCT uti.tag_id) = 0 THEN COUNT(DISTINCT l.user_id)  -- No interactions, rank by likes
+        ELSE SUM(uti.score)  -- Rank by interaction score
+    END DESC, 
+    c.created_at DESC
+LIMIT 50;
+
+
+SELECT 
+	c.content_id,
+    c.user_id,
+    u.username,
+    c.content,
+    c.created_at,
+    GROUP_CONCAT(DISTINCT t.tag_name ORDER BY t.tag_name ASC) AS tags,  
+    COUNT(DISTINCT l.user_id) AS likes  
+FROM Contents c
+JOIN Users u ON c.user_id = u.user_id
+JOIN Contents2Tags ct ON c.content_id = ct.content_id
+JOIN Tags t ON ct.tag_id = t.tag_id
+LEFT JOIN Likes l ON c.content_id = l.content_id
+WHERE c.user_id = 3
+GROUP BY c.content_id
+ORDER BY created_at DESC;

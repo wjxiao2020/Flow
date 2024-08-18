@@ -72,6 +72,8 @@ export default function AppAppBar({ mode, toggleColorMode }) {
   const [selectedText, setSelectedText] = useState('');
   const [openLogIn, setOpenLogIn] = useState(false);
   const {isLoaded, isSignedIn, user} = useUser()
+  const titleMaxLength = 255;         // MAX: 255
+  const contentMaxLength = 65535;     // MAX: 65535
 
   const theme = createTheme({
     palette: {
@@ -216,6 +218,9 @@ export default function AppAppBar({ mode, toggleColorMode }) {
             sx={{ mb: 2 }}
             value={title}
             onChange={(e) => {setTitle(e.target.value)}}
+            onSelect={handleTextSelect}
+            inputProps={{ maxLength: titleMaxLength }}
+            helperText={`${title.length}/${titleMaxLength}`}
           />
           <TextField
             fullWidth
@@ -226,6 +231,8 @@ export default function AppAppBar({ mode, toggleColorMode }) {
             value={content}
             onChange={(e) => {setContent(e.target.value)}}
             onSelect={handleTextSelect}
+            inputProps={{ maxLength: contentMaxLength }}
+            helperText={`${content.length}/${contentMaxLength}`}
           />
           <Popover
             open={Boolean(anchorEl)}
@@ -257,7 +264,7 @@ export default function AppAppBar({ mode, toggleColorMode }) {
             </Box>
           }
             <Box sx={{ mt: 3, textAlign: 'right' }}>
-            <Button variant="contained" color="primary" onClick={handlePost}>
+            <Button variant="contained" color="primary" onClick={handlePost} disabled={title.length == 0 || content.length == 0}>
               Post
             </Button>
           </Box>
