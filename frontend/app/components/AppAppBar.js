@@ -11,7 +11,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import Switch from '@mui/material/Switch';
 import { CssBaseline, useMediaQuery, Modal, TextField, Popover, Chip } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { SignedIn, SignedOut, UserButton, SignIn, useUser } from '@clerk/nextjs'
+import { SignedIn, SignedOut, UserButton, SignIn, useUser } from '@clerk/nextjs';
 
 const Search = styled('div')(({ theme }) => ({
   position: 'relative',
@@ -24,8 +24,8 @@ const Search = styled('div')(({ theme }) => ({
   marginRight: theme.spacing(2),
   marginLeft: theme.spacing(3),
   width: '100%',
-  maxWidth: '600px', 
-  flexGrow: 1, 
+  maxWidth: '600px',
+  flexGrow: 1,
 }));
 
 const SearchIconWrapper = styled('div')(({ theme }) => ({
@@ -62,7 +62,6 @@ const modalStyle = {
   p: 4,
 };
 
-
 export default function AppAppBar({ mode, toggleColorMode }) {
   const [open, setOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -87,8 +86,8 @@ export default function AppAppBar({ mode, toggleColorMode }) {
   const handleTextSelect = (event) => {
     const selectedStr = window.getSelection().toString().trim();
     if (selectedStr.length > 0) {
-      setAnchorEl(event.target); // Set the position of the popup
-      setSelectedText(selectedStr)
+      setAnchorEl(event.target);
+      setSelectedText(selectedStr);
     }
   };
 
@@ -96,9 +95,9 @@ export default function AppAppBar({ mode, toggleColorMode }) {
     if (!tags.includes(newTag)) {
       setTags([...tags, newTag]);
     }
-    setAnchorEl(null); // Close the popup after adding the tag
+    setAnchorEl(null);
   };
-  
+
   const handleDeleteTag = (tagToDelete) => () => {
     setTags((tags) => tags.filter((tag) => tag !== tagToDelete));
   };
@@ -106,25 +105,23 @@ export default function AppAppBar({ mode, toggleColorMode }) {
   const handleOpen = () => {
     if (user) {
       setOpen(true);
-    }
-    else {
+    } else {
       handleOpenLogIn();
     }
-  }
+  };
+
   const handleClose = () => setOpen(false);
   const handlePost = () => {
     if (!user) {
-      
+      // Handle the case where the user is not signed in
     }
-    submitContent(user.id)
-    handleClose()
-  }
+    submitContent(user.id);
+    handleClose();
+  };
 
   const handleOpenLogIn = () => setOpenLogIn(true);
   const handleCloseLogIn = () => setOpenLogIn(false);
 
-
-  // submit post content
   const submitContent = async (userId) => {
     const response = await fetch('http://localhost:8080/api/contents', {
       method: 'POST',
@@ -133,14 +130,13 @@ export default function AppAppBar({ mode, toggleColorMode }) {
       },
       body: JSON.stringify({ title, content, tags, userId }),
     });
-  
+
     if (response.status === 201) {
       console.log('Content submitted successfully');
     } else {
       console.error('Failed to submit content');
     }
   };
-
 
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -152,24 +148,21 @@ export default function AppAppBar({ mode, toggleColorMode }) {
           <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <img
-                src={mode === 'dark' ? "flow-dark-bg.png" : "flow-light-bg.png"}
+                src={mode === 'dark' ? 'flow-dark-bg.png' : 'flow-light-bg.png'}
                 alt="flow-logo"
-                style={{ height: '40px', marginRight: '16px'}}
+                style={{ height: '40px', marginRight: '16px' }}
               />
             </Box>
-            
+
             {!isSmallScreen && (
               <Search>
                 <SearchIconWrapper>
                   <SearchIcon />
                 </SearchIconWrapper>
-                <StyledInputBase
-                  placeholder="Search"
-                  inputProps={{ 'aria-label': 'search' }}
-                />
+                <StyledInputBase placeholder="Search" inputProps={{ 'aria-label': 'search' }} />
               </Search>
             )}
-            
+
             <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <SignedOut>
                 <Button variant="contained" onClick={handleOpenLogIn} sx={{ backgroundColor: '#ff2d55', color: '#fff', textTransform: 'none', borderRadius: '4px', padding: '6px 16px', marginRight: '8px' }}>
@@ -177,19 +170,21 @@ export default function AppAppBar({ mode, toggleColorMode }) {
                 </Button>
               </SignedOut>
               <Modal open={openLogIn} onClose={handleCloseLogIn}>
-                <Box sx={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)'
-                }}>
-                  <SignIn routing="hash"/>
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                >
+                  <SignIn routing="hash" />
                 </Box>
               </Modal>
               <SignedIn>
                 <UserButton />
               </SignedIn>
-              
+
               <IconButton size="large" edge="end" color="inherit">
                 <Switch checked={mode === 'dark'} onChange={toggleColorMode} />
               </IconButton>
@@ -201,12 +196,7 @@ export default function AppAppBar({ mode, toggleColorMode }) {
         </AppBar>
       </Box>
 
-      <Modal
-        open={open}
-        onClose={handleClose}
-        aria-labelledby="modal-modal-title"
-        aria-describedby="modal-modal-description"
-      >
+      <Modal open={open} onClose={handleClose} aria-labelledby="modal-modal-title" aria-describedby="modal-modal-description">
         <Box sx={modalStyle}>
           <Typography id="modal-modal-title" variant="h6" component="h2" sx={{ mb: 2 }}>
             Create New Post
@@ -229,7 +219,9 @@ export default function AppAppBar({ mode, toggleColorMode }) {
             multiline
             rows={4}
             value={content}
-            onChange={(e) => {setContent(e.target.value)}}
+            onChange={(e) => {
+              setContent(e.target.value);
+            }}
             onSelect={handleTextSelect}
             inputProps={{ maxLength: contentMaxLength }}
             helperText={`${content.length}/${contentMaxLength}`}
@@ -242,26 +234,18 @@ export default function AppAppBar({ mode, toggleColorMode }) {
               vertical: 'bottom',
               horizontal: 'left',
             }}
-            disableAutoFocus // Prevent the popover from stealing focus
+            disableAutoFocus
             disableEnforceFocus
             disableRestoreFocus
           >
             <Button onClick={() => addTag(selectedText)}>Add Tag</Button>
           </Popover>
-          {
-            tags.length > 0 && 
-            <Box sx={{mt: 2}}>
-              {
-                tags.map((tag, index) => (
-                <Chip
-                  key={index}
-                  variant='outlined'
-                  label={tag}
-                  onDelete={handleDeleteTag(tag)}
-                />
-                ))
-              }
-            </Box>
+          {tags.length > 0 && (
+            <Box sx={{ mt: 2 }}>
+              {tags.map((tag, index) => (
+                <Chip key={index} variant="outlined" label={tag} onDelete={handleDeleteTag(tag)} />
+              ))}
+            </Box>)
           }
             <Box sx={{ mt: 3, textAlign: 'right' }}>
             <Button variant="contained" color="primary" onClick={handlePost} disabled={title.length == 0 || content.length == 0}>

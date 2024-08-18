@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
@@ -26,6 +27,7 @@ type ContentShown struct {
 	ContentID int      `json:"content_id"`
 	UserID    int      `json:"user_id"`
 	Username  string   `json:"username"`
+	AuthID    string   `json:"auth_id"`
 	Title     string   `json:"title"`
 	Content   string   `json:"content"`
 	CreatedAt string   `json:"created_at"`
@@ -53,7 +55,7 @@ func init() {
 func main() {
 	dbUser := os.Getenv("DB_USER")
 	dbPassword := os.Getenv("DB_PASSWORD")
-	dbName := "contents"
+	dbName := "Flow"
 
 	// Construct the connection string
 	dbConnection := fmt.Sprintf("%s:%s@tcp(127.0.0.1:3306)/%s", dbUser, dbPassword, dbName)
@@ -61,6 +63,7 @@ func main() {
 	// Connect to MySQL database
 	var err error
 	db, err = sql.Open("mysql", dbConnection)
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -69,23 +72,36 @@ func main() {
 	// Test the connection
 	err = db.Ping()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Database connection error:", err)
+	} else {
+		fmt.Println("Database connection successful")
 	}
 
 	// Set up routes
 	r := mux.NewRouter()
 	r.HandleFunc("/api/retrieve", getContentsHandler).Methods("POST")
 	r.HandleFunc("/api/contents", submitHandler).Methods("POST")
+	r.HandleFunc("/ws", handleWebSocket)
+	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello, world!"))
+	})
+
+	// Enable CORS for all origins
+	corsHandler := handlers.CORS(
+		handlers.AllowedOrigins([]string{"*"}),
+		handlers.AllowedMethods([]string{"GET", "POST", "OPTIONS"}),
+		handlers.AllowedHeaders([]string{"Content-Type"}),
+	)(r)
+
+	// http.HandleFunc("/ws", handleWebSocket)
 
 	// Start the server
 	fmt.Println("Server started at :8080")
-	log.Fatal(http.ListenAndServe(":8080", r))
+	log.Fatal(http.ListenAndServe(":8080", corsHandler))
 
 	rdb = redis.NewClient(&redis.Options{
 		Addr: "localhost:6379", // Redis server address
 	})
-
-	http.HandleFunc("/ws", handleWebSocket)
 
 	// Test Redis connection
 	_, err = rdb.Ping(ctx).Result()
@@ -95,25 +111,54 @@ func main() {
 	fmt.Println("Connected to Redis")
 }
 
+// func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+// 	// upgrades the HTTP server connection to a WebSocket connection
+// 	conn, err := upgrader.Upgrade(w, r, nil)
+// 	if err != nil {
+// 		log.Println("Failed to set websocket upgrade: ", err)
+// 		return
+// 	}
+// 	defer conn.Close()
+
+// 	pubsub := rdb.Subscribe(ctx, "notifications")
+// 	defer pubsub.Close()
+
+// 	// creates a Go channel that will receive messages from the Redis subscription
+// 	ch := pubsub.Channel()
+// 	for msg := range ch {
+// 		// sends the message received from Redis over the WebSocket connection to the client
+// 		if err := conn.WriteMessage(websocket.TextMessage, []byte(msg.Payload)); err != nil {
+// 			log.Println("Failed to send message over WebSocket: ", err)
+// 			return
+// 		}
+// 	}
+// }
+
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	// upgrades the HTTP server connection to a WebSocket connection
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true // Adjust this for production
+		},
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println("Failed to set websocket upgrade: ", err)
+		log.Println("Upgrade:", err)
 		return
 	}
 	defer conn.Close()
 
-	pubsub := rdb.Subscribe(ctx, "notifications")
-	defer pubsub.Close()
+	for {
+		messageType, message, err := conn.ReadMessage()
+		if err != nil {
+			log.Println("Read:", err)
+			break
+		}
+		log.Printf("Received: %s", message)
 
-	// creates a Go channel that will receive messages from the Redis subscription
-	ch := pubsub.Channel()
-	for msg := range ch {
-		// sends the message received from Redis over the WebSocket connection to the client
-		if err := conn.WriteMessage(websocket.TextMessage, []byte(msg.Payload)); err != nil {
-			log.Println("Failed to send message over WebSocket: ", err)
-			return
+		if err = conn.WriteMessage(messageType, message); err != nil {
+			log.Println("Write:", err)
+			break
 		}
 	}
 }
@@ -141,11 +186,13 @@ func getContentsHandler(w http.ResponseWriter, r *http.Request) {
 	var args []interface{}
 
 	if request.UserID != nil {
+		fmt.Println(*request.UserID)
 		query = `
 		SELECT 
 			c.content_id,
 			c.user_id,
 			u.username,
+			u.auth_id,
 			c.title,
 			c.content,
 			c.created_at,
@@ -173,11 +220,13 @@ func getContentsHandler(w http.ResponseWriter, r *http.Request) {
 		LIMIT 50;`
 		args = append(args, *request.UserID)
 	} else {
+		fmt.Println("no log in")
 		query = `
 		SELECT 
 			c.content_id,
 			c.user_id,
 			u.username,
+			u.auth_id,
 			c.title,
 			c.content,
 			c.created_at,
@@ -196,26 +245,53 @@ func getContentsHandler(w http.ResponseWriter, r *http.Request) {
 			c.created_at DESC
 		LIMIT 50;`
 	}
-
+	fmt.Println("Database connection:")
+	fmt.Println(db)
 	rows, err := db.Query(query, args...)
 	if err != nil {
+		fmt.Println("Unable to fetch content")
+		fmt.Println(err)
 		http.Error(w, "Unable to fetch content", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
-
+	fmt.Println("reached 1")
+	fmt.Println(rows)
+	fmt.Println("reached 2")
 	var contents []ContentShown
+	var timeStr []uint8
+	var tagsStr []uint8
 	for rows.Next() {
 		var content ContentShown
-		if err := rows.Scan(&content.ContentID, &content.UserID, &content.Username, &content.Title, &content.Content, &content.CreatedAt, &content.Tags, &content.Likes); err != nil {
+		// if err := rows.Scan(&content.ContentID, &content.UserID, &content.Username, &content.AuthID, &content.Title, &content.Content, &content.CreatedAt, &content.Tags, &content.Likes); err != nil {
+		if err := rows.Scan(&content.ContentID, &content.UserID, &content.Username, &content.AuthID, &content.Title, &content.Content, &timeStr, &tagsStr, &content.Likes); err != nil {
+			fmt.Println("Error scanning content")
+			fmt.Println(err)
 			http.Error(w, "Error scanning content", http.StatusInternalServerError)
 			return
 		}
+		// createdAtStr := string(content.CreatedAt)
+		// content.CreatedAt, err = time.Parse("2006-01-02 15:04:05", createdAtStr)
+		content.CreatedAt = string(timeStr)
+
+		// Convert `Tags` from []uint8 to string
+		// Split the tags string by comma and trim spaces
+		content.Tags = splitTags(string(tagsStr))
+
 		contents = append(contents, content)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(contents)
+}
+
+// Function to split tags string into a slice of strings
+func splitTags(tagsStr string) []string {
+	tags := strings.Split(tagsStr, ",")
+	for i, tag := range tags {
+		tags[i] = strings.TrimSpace(tag) // Trim any extra spaces
+	}
+	return tags
 }
 
 // submitHandler handles inserting new content into the database
@@ -324,6 +400,7 @@ func recommendContents(db *sql.DB, authID string) ([]ContentShown, error) {
 		c.content_id,
 		c.user_id,
 		u.username,
+		u.auth_id,
 		c.title,
 		c.content,
 		c.created_at,
@@ -359,7 +436,7 @@ func recommendContents(db *sql.DB, authID string) ([]ContentShown, error) {
 	var posts []ContentShown
 	for rows.Next() {
 		var post ContentShown
-		if err := rows.Scan(&post.ContentID, &post.UserID, &post.Username, &post.Title, &post.Content, &post.CreatedAt, &post.Tags, &post.Likes); err != nil {
+		if err := rows.Scan(&post.ContentID, &post.UserID, &post.Username, &post.AuthID, &post.Title, &post.Content, &post.CreatedAt, &post.Tags, &post.Likes); err != nil {
 			return nil, err
 		}
 		posts = append(posts, post)
@@ -374,6 +451,7 @@ func getContentsByUser(db *sql.DB, targetAuthID string) ([]ContentShown, error) 
 		c.content_id,
 		c.user_id,
 		u.username,
+		u.auth_id,
 		c.title,
 		c.content,
 		c.created_at,
@@ -401,7 +479,7 @@ func getContentsByUser(db *sql.DB, targetAuthID string) ([]ContentShown, error) 
 	var posts []ContentShown
 	for rows.Next() {
 		var post ContentShown
-		if err := rows.Scan(&post.ContentID, &post.UserID, &post.Username, &post.Title, &post.Content, &post.CreatedAt, &post.Tags, &post.Likes); err != nil {
+		if err := rows.Scan(&post.ContentID, &post.UserID, &post.Username, &post.AuthID, &post.Title, &post.Content, &post.CreatedAt, &post.Tags, &post.Likes); err != nil {
 			return nil, err
 		}
 		posts = append(posts, post)

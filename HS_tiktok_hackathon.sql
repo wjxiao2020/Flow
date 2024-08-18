@@ -52,6 +52,8 @@ CREATE TABLE UserTagInteraction (
 insert into Users(username, auth_id) values ('weijia', 1);
 insert into Users(username, auth_id) values ('reb', 2);
 insert into Users(username, auth_id) values ('bored', 3);
+insert into Users(username, auth_id) values ('hey', 278);
+
 DELETE FROM Users where user_id=3;
 select * from Users;
 select * from Contents;
@@ -201,6 +203,7 @@ SELECT
 	c.content_id,
     c.user_id,
     u.username,
+    c.title,
     c.content,
     c.created_at,
     GROUP_CONCAT(DISTINCT t.tag_name ORDER BY t.tag_name ASC) AS tags,  
@@ -210,6 +213,82 @@ JOIN Users u ON c.user_id = u.user_id
 JOIN Contents2Tags ct ON c.content_id = ct.content_id
 JOIN Tags t ON ct.tag_id = t.tag_id
 LEFT JOIN Likes l ON c.content_id = l.content_id
-WHERE c.user_id = 3
+WHERE c.user_id = 2
 GROUP BY c.content_id
 ORDER BY created_at DESC;
+
+
+SELECT 
+		c.content_id,
+		c.user_id,
+		u.username,
+		c.title,
+		c.content,
+		c.created_at,
+		GROUP_CONCAT(DISTINCT t.tag_name ORDER BY t.tag_name ASC) AS tags,
+		COUNT(DISTINCT l.user_id) AS likes
+	FROM 
+		Contents c
+		JOIN Contents2Tags ct ON c.content_id = ct.content_id
+		JOIN Tags t ON ct.tag_id = t.tag_id
+		LEFT JOIN UserTagInteraction uti ON t.tag_id = uti.tag_id AND uti.user_id = (
+			SELECT user_id 
+			FROM Users 
+			WHERE auth_id = 267
+		)
+		LEFT JOIN Likes l ON c.content_id = l.content_id
+		JOIN Users u ON c.user_id = u.user_id
+	GROUP BY 
+		c.content_id
+	ORDER BY 
+		CASE 
+			WHEN COUNT(DISTINCT uti.tag_id) = 0 THEN COUNT(DISTINCT l.user_id)  
+			ELSE SUM(uti.score) 
+		END DESC, 
+		c.created_at DESC
+	LIMIT 50;
+    
+    SELECT 
+		c.content_id,
+		c.user_id,
+		u.username,
+		c.title,
+		c.content,
+		c.created_at,
+		GROUP_CONCAT(DISTINCT t.tag_name ORDER BY t.tag_name ASC) AS tags,  
+		COUNT(DISTINCT l.user_id) AS likes  
+	FROM Contents c
+	JOIN Users u ON c.user_id = u.user_id
+	JOIN Contents2Tags ct ON c.content_id = ct.content_id
+	JOIN Tags t ON ct.tag_id = t.tag_id
+	LEFT JOIN Likes l ON c.content_id = l.content_id
+	WHERE c.user_id = (
+			SELECT user_id 
+			FROM Users 
+			WHERE auth_id = 1
+		)
+	GROUP BY c.content_id
+	ORDER BY created_at DESC;
+    
+SELECT 
+	c.content_id,
+	c.user_id,
+	u.username,
+    u.auth_id,
+	c.title,
+	c.content,
+	c.created_at,
+	GROUP_CONCAT(DISTINCT t.tag_name ORDER BY t.tag_name ASC) AS tags,
+	COUNT(DISTINCT l.user_id) AS likes
+FROM 
+	Contents c
+	JOIN Contents2Tags ct ON c.content_id = ct.content_id
+	JOIN Tags t ON ct.tag_id = t.tag_id
+	LEFT JOIN Likes l ON c.content_id = l.content_id
+	JOIN Users u ON c.user_id = u.user_id
+GROUP BY 
+	c.content_id
+ORDER BY 
+	COUNT(DISTINCT l.user_id) DESC, 
+	c.created_at DESC
+LIMIT 50;
