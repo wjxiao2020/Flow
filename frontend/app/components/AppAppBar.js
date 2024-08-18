@@ -12,6 +12,9 @@ import Switch from '@mui/material/Switch';
 import { CssBaseline, useMediaQuery, Modal, TextField, Popover, Chip } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { SignedIn, SignedOut, UserButton, SignIn, useUser } from '@clerk/nextjs';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import Badge from '@mui/material/Badge';
+import MenuItem from '@mui/material/MenuItem';
 
 const Search = styled('div')(({ theme }) => ({
   position: 'relative',
@@ -26,12 +29,15 @@ const Search = styled('div')(({ theme }) => ({
   width: '100%',
   maxWidth: '600px',
   flexGrow: 1,
+  padding: 0,  
+  textTransform: 'none',
 }));
 
 const SearchIconWrapper = styled('div')(({ theme }) => ({
   padding: theme.spacing(0, 2),
   height: '100%',
   position: 'absolute',
+  right: 0,
   pointerEvents: 'none',
   display: 'flex',
   alignItems: 'center',
@@ -44,7 +50,7 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
   width: '100%',
   '& .MuiInputBase-input': {
     padding: theme.spacing(1.5, 1, 1.5, 0),
-    paddingLeft: `calc(1em + ${theme.spacing(4)})`,
+    paddingLeft: `calc(1em + ${theme.spacing(1)})`,
     transition: theme.transitions.create('width'),
     width: '100%',
   },
@@ -151,7 +157,6 @@ export default function AppAppBar({ mode, toggleColorMode }) {
                 style={{ height: '40px', marginRight: '16px' }}
               />
             </Box>
-
             {!isSmallScreen && (
               <Search>
                 <SearchIconWrapper>
@@ -160,7 +165,6 @@ export default function AppAppBar({ mode, toggleColorMode }) {
                 <StyledInputBase placeholder="Search" inputProps={{ 'aria-label': 'search' }} />
               </Search>
             )}
-
             <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <SignedOut>
                 <Button variant="contained" onClick={handleOpenLogIn} sx={{ backgroundColor: '#ff2d55', color: '#fff', textTransform: 'none', borderRadius: '4px', padding: '6px 16px', marginRight: '8px' }}>
@@ -179,16 +183,26 @@ export default function AppAppBar({ mode, toggleColorMode }) {
                   <SignIn routing="hash" />
                 </Box>
               </Modal>
+              <IconButton size="large" edge="end" color="inherit" onClick={handleOpen} >
+                <AddIcon />
+              </IconButton>
+              <MenuItem>
+                <IconButton
+                  size="large"
+                  aria-label="show 17 new notifications"
+                  color="inherit"
+                >
+                  <Badge badgeContent={17} color="error">
+                    <NotificationsIcon />
+                  </Badge>
+                </IconButton>
+              </MenuItem>
+              <IconButton size="large" edge="end" color="inherit" sx={{ marginRight: "5px" }}>
+                <Switch checked={mode === 'dark'} onChange={toggleColorMode} />
+              </IconButton>
               <SignedIn>
                 <UserButton />
               </SignedIn>
-
-              <IconButton size="large" edge="end" color="inherit">
-                <Switch checked={mode === 'dark'} onChange={toggleColorMode} />
-              </IconButton>
-              <IconButton size="large" edge="end" color="inherit" onClick={handleOpen}>
-                <AddIcon />
-              </IconButton>
             </Box>
           </Toolbar>
         </AppBar>
