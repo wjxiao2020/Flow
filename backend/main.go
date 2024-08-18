@@ -22,8 +22,13 @@ var upgrader = websocket.Upgrader{}
 
 // Content represents the structure of the content that will be stored in the database
 type Content struct {
-	ID      int    `json:"id"`
-	Content string `json:"content"`
+	ContentID int      `json:"content_id"`
+	UserID    int      `json:"user_id"`
+	Username  string   `json:"username"`
+	Content   string   `json:"content"`
+	CreatedAt string   `json:"created_at"`
+	Tags      []string `json:"tags"`
+	Likes     int      `json:"likes"`
 }
 
 var ctx = context.Background()
@@ -38,8 +43,6 @@ func init() {
 func main() {
 	dbUser := os.Getenv("DB_USER")
 	dbPassword := os.Getenv("DB_PASSWORD")
-
-	// Replace with your database name
 	dbName := "contents"
 
 	// Construct the connection string
@@ -125,7 +128,7 @@ func getContentsHandler(w http.ResponseWriter, r *http.Request) {
 	var contents []Content
 	for rows.Next() {
 		var content Content
-		if err := rows.Scan(&content.ID, &content.Content); err != nil {
+		if err := rows.Scan(&content.ContentID, &content.Content); err != nil {
 			http.Error(w, "Error scanning content", http.StatusInternalServerError)
 			return
 		}
@@ -154,4 +157,86 @@ func submitHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Publish a notification
 	publishNotification(rdb, "New content posted!")
+}
+
+func recommendContents(db *sql.DB, userID string) ([]Content, error) {
+	query := `
+	SELECT 
+		c.content_id,
+		c.user_id,
+		u.username,
+		c.content,
+		c.created_at,
+		GROUP_CONCAT(DISTINCT t.tag_name ORDER BY t.tag_name ASC) AS tags,
+		COUNT(DISTINCT l.user_id) AS likes
+	FROM 
+		Contents c
+		JOIN Contents2Tags ct ON c.content_id = ct.content_id
+		JOIN Tags t ON ct.tag_id = t.tag_id
+		LEFT JOIN UserTagInteraction uti ON t.tag_id = uti.tag_id AND uti.user_id = ?
+		LEFT JOIN Likes l ON c.content_id = l.content_id
+		JOIN Users u ON c.user_id = u.user_id
+	GROUP BY 
+		c.content_id
+	ORDER BY 
+		CASE 
+			WHEN COUNT(DISTINCT uti.tag_id) = 0 THEN COUNT(DISTINCT l.user_id)  
+			ELSE SUM(uti.score) 
+		END DESC, 
+		c.created_at DESC
+	LIMIT 50;`
+
+	rows, err := db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []Content
+	for rows.Next() {
+		var post Content
+		if err := rows.Scan(&post.ContentID, &post.Content); err != nil {
+			return nil, err
+		}
+		posts = append(posts, post)
+	}
+
+	return posts, nil
+}
+
+func getContentsByUser(db *sql.DB, targetUserID string) ([]Content, error) {
+	query := `
+    SELECT 
+		c.content_id,
+		c.user_id,
+		u.username,
+		c.content,
+		c.created_at,
+		GROUP_CONCAT(DISTINCT t.tag_name ORDER BY t.tag_name ASC) AS tags,  
+		COUNT(DISTINCT l.user_id) AS likes  
+	FROM Contents c
+	JOIN Users u ON c.user_id = u.user_id
+	JOIN Contents2Tags ct ON c.content_id = ct.content_id
+	JOIN Tags t ON ct.tag_id = t.tag_id
+	LEFT JOIN Likes l ON c.content_id = l.content_id
+	WHERE c.user_id = ?
+	GROUP BY c.content_id
+	ORDER BY created_at DESC;`
+
+	rows, err := db.Query(query, targetUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []Content
+	for rows.Next() {
+		var post Content
+		if err := rows.Scan(&post.ContentID, &post.Content, &post.CreatedAt); err != nil {
+			return nil, err
+		}
+		posts = append(posts, post)
+	}
+
+	return posts, nil
 }

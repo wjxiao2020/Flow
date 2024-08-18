@@ -2,7 +2,7 @@
 import { Box, TextField, Stack, Button } from "@mui/material";
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Home() {
   const [message, setMessage] = useState('');
