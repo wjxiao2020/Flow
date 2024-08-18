@@ -23,33 +23,37 @@ const Search = styled('div')(({ theme }) => ({
   backgroundColor: theme.palette.background.default,
   '&:hover': {
     backgroundColor: alpha(theme.palette.background.default, 0.9),
+    borderColor: theme.palette.primary.main, 
   },
   marginRight: theme.spacing(2),
   marginLeft: theme.spacing(3),
   width: '100%',
   maxWidth: '600px',
   flexGrow: 1,
-  padding: 0,  
-  textTransform: 'none',
+  display: 'flex',
+  alignItems: 'center',
+  height: '40px', 
+  paddingRight: theme.spacing(1), 
 }));
 
-const SearchIconWrapper = styled('div')(({ theme }) => ({
-  padding: theme.spacing(0, 2),
+const SearchIconWrapper = styled(IconButton)(({ theme }) => ({
+  padding: theme.spacing(1),
   height: '100%',
   position: 'absolute',
   right: 0,
-  pointerEvents: 'none',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   color: theme.palette.text.secondary,
+  cursor: 'pointer',
 }));
 
 const StyledInputBase = styled(InputBase)(({ theme }) => ({
   color: theme.palette.text.primary,
   width: '100%',
+  paddingRight: theme.spacing(6), 
   '& .MuiInputBase-input': {
-    padding: theme.spacing(1.5, 1, 1.5, 0),
+    padding: theme.spacing(1, 1, 1, 2),
     paddingLeft: `calc(1em + ${theme.spacing(1)})`,
     transition: theme.transitions.create('width'),
     width: '100%',
@@ -159,10 +163,10 @@ export default function AppAppBar({ mode, toggleColorMode }) {
             </Box>
             {!isSmallScreen && (
               <Search>
-                <SearchIconWrapper>
+                <StyledInputBase placeholder="Search" inputProps={{ 'aria-label': 'search' }} />
+                <SearchIconWrapper onClick={() => console.log('Search icon clicked')}>
                   <SearchIcon />
                 </SearchIconWrapper>
-                <StyledInputBase placeholder="Search" inputProps={{ 'aria-label': 'search' }} />
               </Search>
             )}
             <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
@@ -183,14 +187,14 @@ export default function AppAppBar({ mode, toggleColorMode }) {
                   <SignIn routing="hash" />
                 </Box>
               </Modal>
-              <IconButton size="large" edge="end" color="inherit" onClick={handleOpen} >
+              <IconButton size="large" edge="end" color="gray" onClick={handleOpen} >
                 <AddIcon />
               </IconButton>
               <MenuItem>
                 <IconButton
                   size="large"
                   aria-label="show 17 new notifications"
-                  color="inherit"
+                  color="gray"
                 >
                   <Badge badgeContent={17} color="error">
                     <NotificationsIcon />
@@ -198,7 +202,18 @@ export default function AppAppBar({ mode, toggleColorMode }) {
                 </IconButton>
               </MenuItem>
               <IconButton size="large" edge="end" color="inherit" sx={{ marginRight: "5px" }}>
-                <Switch checked={mode === 'dark'} onChange={toggleColorMode} />
+                <Switch 
+                  checked={mode === 'dark'} 
+                  onChange={toggleColorMode} 
+                  sx={{
+                    '& .MuiSwitch-switchBase': {
+                      color: mode === 'light' ? 'rgb(116,240,237)' : undefined,
+                    },
+                    '& .MuiSwitch-thumb': {
+                      color: mode === 'light' ? 'rgb(116,240,237)' : undefined,
+                    },
+                  }}
+                  />
               </IconButton>
               <SignedIn>
                 <UserButton />

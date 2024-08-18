@@ -3,3 +3,68 @@
   padding: 0;
   margin: 0;
 }
+
+/* Loading Screen CSS */
+.loader {
+  width: 50px;
+  aspect-ratio: 1;
+  display: grid;
+}
+
+.loader:before,
+.loader:after {
+  content: "";
+  grid-area: 1/1;
+  border-radius: 50%;
+  background: #f03355;
+  -webkit-mask: repeating-linear-gradient(#000 0 5px, #0000 0 10px);
+  animation: l35 1.5s infinite;
+}
+
+.loader:after {
+  -webkit-mask: repeating-linear-gradient(#0000 0 5px, #000 0 10px);
+  --s: -1;
+}
+
+@keyframes l35 {
+  0%,
+  10% {
+    transform: translate(0) rotate(0);
+  }
+  35% {
+    transform: translate(calc(var(--s, 1) * 50%)) rotate(0);
+  }
+  66% {
+    transform: translate(calc(var(--s, 1) * 50%)) rotate(calc(var(--s, 1) * 180deg));
+  }
+  90%,
+  100% {
+    transform: translate(0) rotate(calc(var(--s, 1) * 180deg));
+  }
+}
+
+/* Background Stripes */
+body {
+  background-color: var(--background-color);
+  background-image: linear-gradient(
+    45deg,
+    var(--stripe-color) 25%,
+    transparent 25%,
+    transparent 50%,
+    var(--stripe-color) 50%,
+    var(--stripe-color) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 40px 40px;
+}
+
+[data-theme="light"] {
+  --background-color: #f0f0f0;
+  --stripe-color: #e0e0e0;
+}
+
+[data-theme="dark"] {
+  --background-color: #222;
+  --stripe-color: #333;
+}

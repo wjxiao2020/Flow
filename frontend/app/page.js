@@ -7,20 +7,31 @@ import MainContent from './components/MainContent';
 import { useState, useEffect } from "react";
 
 export default function Home() {
-  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState('true'); 
   const [mode, setMode] = React.useState('light');
 
   const toggleColorMode = () => {
     setMode((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  const fetchContents = async () => {
-    const response = await fetch('http://localhost:8080/api/contents');
-    const data = await response.json();
-    return data;
-  };
-
   useEffect(() => {
+    document.documentElement.setAttribute('data-theme', mode);
+  }, [mode]);
+  
+  useEffect(() => {
+    const fetchContents = async () => {
+      try {
+        const response = await fetch('http://localhost:8080/api/contents');
+        const data = await response.json();
+      } catch (error) {
+        console.error('Failed to load content:', error);
+      } finally {
+        setLoading(false); 
+      }
+    };
+
+    fetchContents();
+
     const socket = new WebSocket('ws://localhost:8080/ws');
   
     socket.onmessage = (event) => {
@@ -29,6 +40,20 @@ export default function Home() {
   
     return () => socket.close();
   }, []);
+
+  if (loading) {
+    return (
+      <Box
+        width='100vw'
+        height='100vh'
+        display='flex'
+        justifyContent='center'
+        alignItems='center'
+      >
+        <div className="loader"></div>
+      </Box>
+    );
+  }
 
   return (
     <Box

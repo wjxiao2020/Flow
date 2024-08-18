@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Typography, IconButton, Avatar } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
+import Divder from '@mui/material/Divider';
 
 const MainContent = ({ mode }) => {
   const [likedPosts, setLikedPosts] = useState({});
@@ -78,13 +79,14 @@ const MainContent = ({ mode }) => {
         'scrollbar-width': 'none',    
       }}
     >
-      {posts.map((post) => (
+      {posts.map((post, index) => (
+        <React.Fragment key={post.id}>
         <Box
           key={post.id}
           sx={{
             mb: 2,
             padding: 2,
-            borderRadius: 1,
+            borderRadius: 3,
             backgroundColor: mode === 'dark' ? '#444' : 'background.paper',
             '&:hover': {
               backgroundColor: mode === 'dark' ? '#555' : 'grey.100',
@@ -135,15 +137,17 @@ const MainContent = ({ mode }) => {
           <IconButton
             onClick={() => toggleLike(post.id)}
             sx={{
-              color: likedPosts[post.id] ? 'red' : 'inherit',
+              color: likedPosts[post.id] ? 'red' : 'grey',
               '&:hover': {
-                color: likedPosts[post.id] ? 'darkred' : 'grey.500',
+                color: likedPosts[post.id] ? 'darkred' : 'pink',
               },
             }}
           >
             <FavoriteIcon />
           </IconButton>
         </Box>
+        {index < posts.length - 1 && <Divder sx={{my: 2}} />}
+        </React.Fragment>
       ))}
     </Box>
   );
