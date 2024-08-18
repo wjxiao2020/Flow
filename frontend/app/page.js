@@ -5,10 +5,14 @@ import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import AppAppBar from './components/AppAppBar';
 
 import { useState, useEffect } from "react";
+import { useUser } from '@clerk/nextjs'
 
 export default function Home() {
   const [message, setMessage] = useState('');
   const [mode, setMode] = React.useState('light');
+  const [loading, setLoading] = useState(false);
+  const [posts, setPosts] = useState([]);
+  const { user, isSignedIn } = useUser();
 
   const toggleColorMode = () => {
     setMode((prev) => (prev === 'dark' ? 'light' : 'dark'));
@@ -30,6 +34,29 @@ export default function Home() {
     return () => socket.close();
   }, []);
   
+  useEffect(() => {
+    const fetchPosts = async () => {
+      setLoading(true);
+      const authId = user ? user.id : null;
+      const response = await fetch('/api/retrieve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: authId }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPosts(data);
+      } else {
+        console.error('Failed to fetch posts');
+      }
+      setLoading(false);
+    };
+
+    fetchPosts();
+  }, [isSignedIn, user]);
 
   return (
     <Box
