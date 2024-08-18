@@ -3,6 +3,7 @@ import * as React from 'react';
 import { Box, TextField, Stack, Button } from "@mui/material";
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import AppAppBar from './components/AppAppBar';
+import MainContent from './components/MainContent';
 
 import { useState, useEffect } from "react";
 
@@ -42,6 +43,7 @@ export default function Home() {
       margin='0'
       padding='0'>
         <AppAppBar mode={mode} toggleColorMode={toggleColorMode} />
+        <MainContent mode={mode} />
     </Box>
   );
 }
