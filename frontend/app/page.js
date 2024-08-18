@@ -1,11 +1,18 @@
 'use client'
+import * as React from 'react';
 import { Box, TextField, Stack, Button } from "@mui/material";
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
+import AppAppBar from './components/AppAppBar';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Home() {
   const [message, setMessage] = useState('');
+  const [mode, setMode] = React.useState('light');
+
+  const toggleColorMode = () => {
+    setMode((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   const fetchContents = async () => {
     const response = await fetch('http://localhost:8080/api/contents');
@@ -51,33 +58,7 @@ export default function Home() {
       alignItems='center'
       margin='0'
       padding='0'>
-        <Stack direction={'row'} spacing={2}>
-          <TextField
-            label='Your message'
-            fullWidth
-            multiline
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            InputLabelProps={{
-              style: { top: '-7px', fontSize: '0.75rem'  },
-            }}
-            sx={{
-              height: '30px', 
-              '& .MuiInputBase-root': {height: '100%'}
-            }}
-            onKeyDown={(k) => {
-              if (k.key === 'Enter') {
-                event.preventDefault();
-                // sendMessage(message);
-              }
-            }}
-          />
-          <Button variant="contained" 
-            // onClick={() => sendMessage(message)}
-          >
-            <SendRoundedIcon />
-          </Button>
-        </Stack>
+        <AppAppBar mode={mode} toggleColorMode={toggleColorMode} />
     </Box>
   );
 }
