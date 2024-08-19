@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { Box, Typography, IconButton, Stack, Avatar } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import { useUser } from '@clerk/nextjs'
 import { createClerkClient } from '@clerk/backend'
+import Divder from '@mui/material/Divider';
 
 const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
 
@@ -44,8 +45,8 @@ const MainContent = ({ mode, handleOpenLogIn }) => {
       });
 
       // Update the local state
-      setLikeCount((prev) => isLiked ? prev - 1 : prev + 1);
-      onLikeUpdate(contentId, !isLiked); // Update the parent component state
+      // setLikeCount((prev) => isLiked ? prev - 1 : prev + 1);
+      // onLikeUpdate(contentId, !isLiked); // Update the parent component state
     } catch (error) {
       console.error('Error updating like:', error);
     }
@@ -181,14 +182,14 @@ const MainContent = ({ mode, handleOpenLogIn }) => {
         'scrollbarWidth': 'none',    
       }}
     >
-      {posts.map((post) => (
-        // console.log(post)
+      {posts.map((post, index) => (
+        <Fragment key={post.id}>
         <Box
           key={post.content_id}
           sx={{
             mb: 2,
             padding: 2,
-            borderRadius: 1,
+            borderRadius: 3,
             backgroundColor: mode === 'dark' ? '#444' : 'background.paper',
             '&:hover': {
               backgroundColor: mode === 'dark' ? '#555' : 'grey.100',
@@ -240,9 +241,9 @@ const MainContent = ({ mode, handleOpenLogIn }) => {
             <IconButton
               onClick={() => toggleLike(post.content_id)}
               sx={{
-                color: likedPosts[post.content_id] ? 'red' : 'inherit',
+                color: likedPosts[post.content_id] ? 'red' : 'grey',
                 '&:hover': {
-                  color: likedPosts[post.content_id] ? 'darkred' : 'grey.500',
+                  color: likedPosts[post.content_id] ? 'darkred' : 'pink',
                 },
               }}
             >
@@ -251,6 +252,8 @@ const MainContent = ({ mode, handleOpenLogIn }) => {
             <Typography variant="caption">{post.likes}</Typography>
           </Stack>
         </Box>
+        {index < posts.length - 1 && <Divder sx={{my: 2}} />}
+        </Fragment>
       ))}
     </Box>
   );

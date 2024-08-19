@@ -346,8 +346,8 @@ func getContentsHandler(w http.ResponseWriter, r *http.Request) {
 			c.created_at DESC
 		LIMIT 50;`
 	}
-	fmt.Println("Database connection:")
-	fmt.Println(db)
+	// fmt.Println("Database connection:")
+	// fmt.Println(db)
 	rows, err := db.Query(query, args...)
 	if err != nil {
 		fmt.Println("Unable to fetch content")
@@ -356,9 +356,6 @@ func getContentsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
-	fmt.Println("reached 1")
-	fmt.Println(rows)
-	fmt.Println("reached 2")
 	var contents []ContentShown
 	var timeStr []uint8
 	var tagsStr []uint8
